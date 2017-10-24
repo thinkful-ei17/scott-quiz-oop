@@ -1,22 +1,8 @@
 const BASE_API_URL = 'https://opentdb.com';
 const TOP_LEVEL_COMPONENTS = ['js-intro', 'js-question', 'js-question-feedback', 'js-outro', 'js-quiz-status'];
 
-const QUESTIONS = [
-  { 
-    text: 'Capital of England?',
-    answers: [
-      'London', 'Paris', 'Rome', 'Washington DC'
-    ],
-    correctAnswer: 'London'
-  },
-  {
-    text: 'How many kilometers in one mile?',
-    answers: [
-      '0.6', '1.2', '1.6', '1.8'
-    ],
-    correctAnswer: '1.6'
-  }
-];
+let QUESTIONS = [];
+let sessionToken;
 
 const getInitialStore = function(){
   return {
@@ -24,7 +10,7 @@ const getInitialStore = function(){
     currentQuestionIndex: null,
     userAnswers: [],
     feedback: null,
-    sessionToken: null,
+    sessionToken,
   };
 };
 
@@ -54,8 +40,8 @@ const buildTokenUrl = function() {
 };
 
 const fetchToken = function() {
-  if (store.sessionToken) {
-    return store.sessionToken;
+  if (sessionToken) {
+    return sessionToken;
   }
 
   const url = buildTokenUrl();
@@ -64,16 +50,37 @@ const fetchToken = function() {
     .then(res => res.json())
     .then(res => {
       if (res.response_code !== 0) {
-        store.sessionToken = null;
+        sessionToken = null;
         throw new Error(res.response_message);
       }
 
-      store.sessionToken = res.token;
+      sessionToken = res.token;
     });
 };
 
 const fetchQuestions = function(amt, query) {
   return fetch(buildBaseUrl(amt, query)).then(res => res.json());
+};
+
+const seedQuestions = function(questions) {
+  QUESTIONS.length = 0;
+  questions.forEach(q => QUESTIONS.push(createQuestion(q)));
+};
+
+const fetchAndSeedQuestions = function(amt, query) {
+  return fetchQuestions(amt, query)
+    .then(res => {
+      console.log(res);
+      seedQuestions(res.results);
+    });
+};
+
+const createQuestion = function(question) {
+  return {
+    text: question.question,
+    answers: [ ...question.incorrect_answers, question.correct_answer ],
+    correctAnswer: question.correct_answer
+  };
 };
 
 const getScore = function() {
@@ -108,7 +115,7 @@ const getQuestion = function(index) {
 const generateAnswerItemHtml = function(answer) {
   return `
     <li class="answer-item">
-      <input type="radio" name="answers" value=${answer} />
+      <input type="radio" name="answers" value="${answer}" />
       <span class="answer-text">${answer}</span>
     </li>
   `;
@@ -184,7 +191,9 @@ const handleStartQuiz = function() {
   store = getInitialStore();
   store.page = 'question';
   store.currentQuestionIndex = 0;
-  render();
+  fetchAndSeedQuestions(3, { type: 'multiple' })
+    .then(() => render())
+    .catch(e => console.log(e.message));
 };
 
 const handleSubmitAnswer = function(e) {
@@ -222,9 +231,7 @@ $(() => {
 
   // Fetch session token, enable Start button when complete
   fetchToken()
-    .then(() => fetchQuestions(2, { type: 'boolean' }))
-    .then(res => {
-      console.log(res);
+    .then(() => {
       $('.js-start').attr('disabled', false);
     })
     .catch(err => console.log(err.message));
