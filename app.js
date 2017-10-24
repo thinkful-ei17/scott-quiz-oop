@@ -1,7 +1,13 @@
 const BASE_API_URL = 'https://opentdb.com';
-const TOP_LEVEL_COMPONENTS = ['js-intro', 'js-question', 'js-question-feedback', 'js-outro', 'js-quiz-status'];
+const TOP_LEVEL_COMPONENTS = [
+  'js-intro', 'js-question', 'js-question-feedback', 
+  'js-outro', 'js-quiz-status'
+];
 
 let QUESTIONS = [];
+
+// token is global because store is reset between quiz games, but token should persist for 
+// entire session
 let sessionToken;
 
 const getInitialStore = function(){
