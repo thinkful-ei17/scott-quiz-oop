@@ -1,3 +1,4 @@
+const BASE_API_URL = 'https://opentdb.com';
 const TOP_LEVEL_COMPONENTS = ['js-intro', 'js-question', 'js-question-feedback', 'js-outro', 'js-quiz-status'];
 
 const QUESTIONS = [
@@ -6,14 +7,14 @@ const QUESTIONS = [
     answers: [
       'London', 'Paris', 'Rome', 'Washington DC'
     ],
-    correctAnswer: 0
+    correctAnswer: 'London'
   },
   {
     text: 'How many kilometers in one mile?',
     answers: [
       '0.6', '1.2', '1.6', '1.8'
     ],
-    correctAnswer: 2
+    correctAnswer: '1.6'
   }
 ];
 
@@ -23,6 +24,7 @@ const getInitialStore = function(){
     currentQuestionIndex: null,
     userAnswers: [],
     feedback: null,
+    sessionToken: null,
   };
 };
 
@@ -32,6 +34,46 @@ let store = getInitialStore();
 // ===============
 const hideAll = function() {
   TOP_LEVEL_COMPONENTS.forEach(component => $(`.${component}`).hide());
+};
+
+const buildBaseUrl = function(amt = 10, query = {}) {
+  const url = new URL(BASE_API_URL + '/api.php');
+  const queryKeys = Object.keys(query);
+  url.searchParams.set('amount', amt);
+
+  if (store.sessionToken) {
+    url.searchParams.set('token', store.sessionToken);
+  }
+
+  queryKeys.forEach(key => url.searchParams.set(key, query[key]));
+  return url;
+};
+
+const buildTokenUrl = function() {
+  return new URL(BASE_API_URL + '/api_token.php');
+};
+
+const fetchToken = function() {
+  if (store.sessionToken) {
+    return store.sessionToken;
+  }
+
+  const url = buildTokenUrl();
+  url.searchParams.set('command', 'request');
+  return fetch(url)
+    .then(res => res.json())
+    .then(res => {
+      if (res.response_code !== 0) {
+        store.sessionToken = null;
+        throw new Error(res.response_message);
+      }
+
+      store.sessionToken = res.token;
+    });
+};
+
+const fetchQuestions = function(amt, query) {
+  return fetch(buildBaseUrl(amt, query)).then(res => res.json());
 };
 
 const getScore = function() {
@@ -63,10 +105,10 @@ const getQuestion = function(index) {
 
 // HTML generator functions
 // ========================
-const generateAnswerItemHtml = function(answer, index) {
+const generateAnswerItemHtml = function(answer) {
   return `
     <li class="answer-item">
-      <input type="radio" name="answers" value=${index} />
+      <input type="radio" name="answers" value=${answer} />
       <span class="answer-text">${answer}</span>
     </li>
   `;
@@ -148,13 +190,13 @@ const handleStartQuiz = function() {
 const handleSubmitAnswer = function(e) {
   e.preventDefault();
   const question = getCurrentQuestion();
-  const selected = parseInt($('input:checked').val(), 10);
+  const selected = $('input:checked').val();
   store.userAnswers.push(selected);
   
   if (selected === question.correctAnswer) {
     store.feedback = 'You got it!';
   } else {
-    store.feedback = `Too bad! The correct answer was: ${question.answers[question.correctAnswer]}`;
+    store.feedback = `Too bad! The correct answer was: ${question.correctAnswer}`;
   }
 
   store.page = 'answer';
@@ -175,7 +217,17 @@ const handleNextQuestion = function() {
 
 // On DOM Ready, run render() and add event listeners
 $(() => {
+  // Run first render
   render();
+
+  // Fetch session token, enable Start button when complete
+  fetchToken()
+    .then(() => fetchQuestions(2, { type: 'boolean' }))
+    .then(res => {
+      console.log(res);
+      $('.js-start').attr('disabled', false);
+    })
+    .catch(err => console.log(err.message));
 
   $('.js-intro, .js-outro').on('click', '.js-start', handleStartQuiz);
   $('.js-question').on('submit', handleSubmitAnswer);
