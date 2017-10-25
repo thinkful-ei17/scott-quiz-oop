@@ -45,27 +45,22 @@ const buildTokenUrl = function() {
   return new URL(BASE_API_URL + '/api_token.php');
 };
 
-const fetchToken = function() {
+const fetchToken = function(callback) {
   if (sessionToken) {
     return sessionToken;
   }
 
   const url = buildTokenUrl();
   url.searchParams.set('command', 'request');
-  return fetch(url)
-    .then(res => res.json())
-    .then(res => {
-      if (res.response_code !== 0) {
-        sessionToken = null;
-        throw new Error(res.response_message);
-      }
 
-      sessionToken = res.token;
-    });
+  $.getJSON(url, res => {
+    sessionToken = res.token;
+    callback();
+  }, err => console.log(err));
 };
 
-const fetchQuestions = function(amt, query) {
-  return fetch(buildBaseUrl(amt, query)).then(res => res.json());
+const fetchQuestions = function(amt, query, callback) {
+  $.getJSON(buildBaseUrl(amt, query), callback, err => console.log(err.message));
 };
 
 const seedQuestions = function(questions) {
@@ -73,12 +68,11 @@ const seedQuestions = function(questions) {
   questions.forEach(q => QUESTIONS.push(createQuestion(q)));
 };
 
-const fetchAndSeedQuestions = function(amt, query) {
-  return fetchQuestions(amt, query)
-    .then(res => {
-      console.log(res);
-      seedQuestions(res.results);
-    });
+const fetchAndSeedQuestions = function(amt, query, callback) {
+  fetchQuestions(amt, query, res => {
+    seedQuestions(res.results);
+    callback();
+  });
 };
 
 const createQuestion = function(question) {
@@ -197,9 +191,10 @@ const handleStartQuiz = function() {
   store = getInitialStore();
   store.page = 'question';
   store.currentQuestionIndex = 0;
-  fetchAndSeedQuestions(3, { type: 'multiple' })
-    .then(() => render())
-    .catch(e => console.log(e.message));
+  const quantity = parseInt($('#js-question-quantity').find(':selected').val(), 10);
+  fetchAndSeedQuestions(quantity, { type: 'multiple' }, () => {
+    render();
+  });
 };
 
 const handleSubmitAnswer = function(e) {
@@ -236,11 +231,9 @@ $(() => {
   render();
 
   // Fetch session token, enable Start button when complete
-  fetchToken()
-    .then(() => {
-      $('.js-start').attr('disabled', false);
-    })
-    .catch(err => console.log(err.message));
+  fetchToken(() => {
+    $('.js-start').attr('disabled', false);
+  });
 
   $('.js-intro, .js-outro').on('click', '.js-start', handleStartQuiz);
   $('.js-question').on('submit', handleSubmitAnswer);
