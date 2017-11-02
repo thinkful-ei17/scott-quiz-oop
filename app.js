@@ -1,3 +1,5 @@
+'use strict';
+
 const BASE_API_URL = 'https://opentdb.com';
 const TOP_LEVEL_COMPONENTS = [
   'js-intro', 'js-question', 'js-question-feedback', 
@@ -122,17 +124,17 @@ const generateAnswerItemHtml = function(answer) {
 };
 
 const generateQuestionHtml = function(question) {
+  const answers = question.answers
+    .map((answer, index) => generateAnswerItemHtml(answer, index))
+    .join('');
+
   return `
     <form>
-      <div class="question-text">
-        ${question.text}      
-      </div>
-      <ul class="question-answers-list">
-        ${question.answers.map((answer, index) => generateAnswerItemHtml(answer, index)).join('')}
-      </ul>
-      <div>
-        <input type="submit" />
-      </div>
+      <fieldset>
+        <legend class="question-text">${question.text}</legend>
+          ${answers}
+          <button type="submit">Submit</button>
+      </fieldset>
     </form>
   `;
 };
@@ -182,6 +184,9 @@ const render = function() {
       $('.js-outro').show();
       $('.quiz-status').show();
       break;
+
+    default:
+      return;
   }
 };
 
