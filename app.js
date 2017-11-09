@@ -49,7 +49,7 @@ const buildTokenUrl = function() {
 
 const fetchToken = function(callback) {
   if (sessionToken) {
-    return sessionToken;
+    return callback();
   }
 
   const url = buildTokenUrl();
