@@ -77,11 +77,21 @@ const fetchAndSeedQuestions = function(amt, query, callback) {
   });
 };
 
+// Decorate API question object into our Quiz App question format
 const createQuestion = function(question) {
+  // Copy incorrect_answers array into new all answers array
+  const answers = [ ...question.incorrect_answers ];
+
+  // Pick random index from total answers length (incorrect_answers length + 1 correct_answer)
+  const randomIndex = Math.floor(Math.random() * (question.incorrect_answers.length + 1));
+
+  // Insert correct answer at random place
+  answers.splice(randomIndex, 0, question.correct_answer);
+
   return {
     text: question.question,
-    answers: [ ...question.incorrect_answers, question.correct_answer ],
-    correctAnswer: question.correct_answer
+    correctAnswer: question.correct_answer,
+    answers
   };
 };
 
