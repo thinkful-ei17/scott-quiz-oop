@@ -173,6 +173,10 @@ const render = function() {
 
   switch (store.page) {
     case 'intro':
+      if (sessionToken) {
+        $('.js-start').attr('disabled', false);
+      }
+  
       $('.js-intro').show();
       break;
     
@@ -244,10 +248,10 @@ const handleNextQuestion = function() {
 $(() => {
   // Run first render
   render();
-
-  // Fetch session token, enable Start button when complete
+  
+  // Fetch session token, re-render when complete
   fetchToken(() => {
-    $('.js-start').attr('disabled', false);
+    render();
   });
 
   $('.js-intro, .js-outro').on('click', '.js-start', handleStartQuiz);
