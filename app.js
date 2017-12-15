@@ -1,6 +1,6 @@
 'use strict';
 
-const BASE_API_URL = 'https://opentdb.com';
+
 const TOP_LEVEL_COMPONENTS = [
   'js-intro', 'js-question', 'js-question-feedback', 
   'js-outro', 'js-quiz-status'
@@ -8,9 +8,86 @@ const TOP_LEVEL_COMPONENTS = [
 
 let QUESTIONS = [];
 
+
+
+// The OOP approach with inheritance
+// class Person {
+//   constructor(name) {
+//     this.name = name;
+//     this.belly = 'empty';
+//   }
+
+//   eatMeal() {
+//     /* if/else etc. */
+//   }
+// }
+
+// const rich = new Person();
+// rich.eatMeal();
+
+
+class TriviaApi {
+  constructor(){
+    this.sessionToken = null;
+  
+  }
+
+  fetchToken(callback) {
+    if (this.sessionToken) {
+      return callback();
+    }
+    const url = this._buildTokenUrl();
+    url.searchParams.set('command', 'request');
+    $.getJSON(url, res => {
+      this.sessionToken = res.token;
+      callback();
+      console.log(this.sessionToken);
+    }, err => console.log(err));
+  }
+
+  _buildTokenUrl() {
+    return new URL(this.BASE_API_URL + '/api_token.php');
+  }
+
+  _buildBaseUrl(amt = 10, query = {}) {
+    const url = new URL(this.BASE_API_URL + '/api.php');
+    const queryKeys = Object.keys(query);
+    url.searchParams.set('amount', amt);
+
+    if (store.sessionToken) {
+      url.searchParams.set('token', this.sessionToken);
+    }
+
+    queryKeys.forEach(key => url.searchParams.set(key, query[key]));
+    return url;
+  }
+  _fetchQuestions(amt, query, callback) {
+    $.getJSON(this._buildBaseUrl(amt, query), callback, err => console.log(err.message));
+  }
+
+  fetchAndSeedQuestions(amt, query, callback) {
+    this._fetchQuestions(amt, query, res => {
+      this._seedQuestions(res.results);
+      callback();
+    });
+  }
+
+  _seedQuestions(questions) {
+    QUESTIONS.length = 0;
+    questions.forEach(q => QUESTIONS.push(createQuestion(q)));
+  }
+}
+
+TriviaApi.prototype.BASE_API_URL = 'https://opentdb.com';
+
+const triviagame = new TriviaApi();
+console.log(triviagame.sessionToken);
+// triviagame.fetchToken(render);
 // token is global because store is reset between quiz games, but token should persist for 
 // entire session
-let sessionToken;
+
+
+
 
 const getInitialStore = function(){
   return {
@@ -18,7 +95,7 @@ const getInitialStore = function(){
     currentQuestionIndex: null,
     userAnswers: [],
     feedback: null,
-    sessionToken,
+
   };
 };
 
@@ -30,52 +107,15 @@ const hideAll = function() {
   TOP_LEVEL_COMPONENTS.forEach(component => $(`.${component}`).hide());
 };
 
-const buildBaseUrl = function(amt = 10, query = {}) {
-  const url = new URL(BASE_API_URL + '/api.php');
-  const queryKeys = Object.keys(query);
-  url.searchParams.set('amount', amt);
 
-  if (store.sessionToken) {
-    url.searchParams.set('token', store.sessionToken);
-  }
 
-  queryKeys.forEach(key => url.searchParams.set(key, query[key]));
-  return url;
-};
 
-const buildTokenUrl = function() {
-  return new URL(BASE_API_URL + '/api_token.php');
-};
+ 
 
-const fetchToken = function(callback) {
-  if (sessionToken) {
-    return callback();
-  }
 
-  const url = buildTokenUrl();
-  url.searchParams.set('command', 'request');
 
-  $.getJSON(url, res => {
-    sessionToken = res.token;
-    callback();
-  }, err => console.log(err));
-};
 
-const fetchQuestions = function(amt, query, callback) {
-  $.getJSON(buildBaseUrl(amt, query), callback, err => console.log(err.message));
-};
 
-const seedQuestions = function(questions) {
-  QUESTIONS.length = 0;
-  questions.forEach(q => QUESTIONS.push(createQuestion(q)));
-};
-
-const fetchAndSeedQuestions = function(amt, query, callback) {
-  fetchQuestions(amt, query, res => {
-    seedQuestions(res.results);
-    callback();
-  });
-};
 
 // Decorate API question object into our Quiz App question format
 const createQuestion = function(question) {
@@ -172,35 +212,35 @@ const render = function() {
   $('.js-progress').html(`<span>Question ${current} of ${total}`);
 
   switch (store.page) {
-    case 'intro':
-      if (sessionToken) {
-        $('.js-start').attr('disabled', false);
-      }
+  case 'intro':
+    if (triviagame.sessionToken) {
+      $('.js-start').attr('disabled', false);
+    }
   
-      $('.js-intro').show();
-      break;
+    $('.js-intro').show();
+    break;
     
-    case 'question':
-      html = generateQuestionHtml(question);
-      $('.js-question').html(html);
-      $('.js-question').show();
-      $('.quiz-status').show();
-      break;
+  case 'question':
+    html = generateQuestionHtml(question);
+    $('.js-question').html(html);
+    $('.js-question').show();
+    $('.quiz-status').show();
+    break;
 
-    case 'answer':
-      html = generateFeedbackHtml(feedback);
-      $('.js-question-feedback').html(html);
-      $('.js-question-feedback').show();
-      $('.quiz-status').show();
-      break;
+  case 'answer':
+    html = generateFeedbackHtml(feedback);
+    $('.js-question-feedback').html(html);
+    $('.js-question-feedback').show();
+    $('.quiz-status').show();
+    break;
 
-    case 'outro':
-      $('.js-outro').show();
-      $('.quiz-status').show();
-      break;
+  case 'outro':
+    $('.js-outro').show();
+    $('.quiz-status').show();
+    break;
 
-    default:
-      return;
+  default:
+    return;
   }
 };
 
@@ -211,7 +251,7 @@ const handleStartQuiz = function() {
   store.page = 'question';
   store.currentQuestionIndex = 0;
   const quantity = parseInt($('#js-question-quantity').find(':selected').val(), 10);
-  fetchAndSeedQuestions(quantity, { type: 'multiple' }, () => {
+  triviagame.fetchAndSeedQuestions(quantity, { type: 'multiple' }, () => {
     render();
   });
 };
@@ -250,7 +290,7 @@ $(() => {
   render();
   
   // Fetch session token, re-render when complete
-  fetchToken(() => {
+  triviagame.fetchToken(() => {
     render();
   });
 
